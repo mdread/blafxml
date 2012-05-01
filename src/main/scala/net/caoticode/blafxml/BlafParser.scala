@@ -1,12 +1,15 @@
 package net.caoticode.blafxml
 
-import java.io.{FileReader, Reader}
+import java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
-import xml.{NodeSeq, XML}
+import xml.XML
+import actors.Actor
+import actors.Actor._
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
  * */
+
 
 object BlafParser{
   def apply(reader: Reader): BlafParser = {
@@ -16,10 +19,10 @@ object BlafParser{
 
 class BlafParser(reader: Reader) {
 
-  private var listeners = Map[String, NodeSeq => Unit]()
+  private var listeners = Map[String, Actor]()
 
-  def forEach(nodeName: String)(callback: NodeSeq => Unit): BlafParser = {
-    listeners += (nodeName -> callback)
+  def forEach(nodeName: String)(callback: XMLProcessor): BlafParser = {
+    listeners += (nodeName -> new BlafActor(callback).start())
     this
   }
 
@@ -50,8 +53,9 @@ class BlafParser(reader: Reader) {
             val accumulator = accumulators(xmlr.getLocalName)
             accumulators.remove(xmlr.getLocalName)
 
-            val xml = XML.loadString(accumulator.toString)
-            listeners(xmlr.getLocalName)(xml)
+//            val xml = XML.loadString(accumulator.toString)
+//            listeners(xmlr.getLocalName)(xml)
+            listeners(xmlr.getLocalName) ! Process(accumulator.toString)
           }
           case XMLStreamConstants.END_ELEMENT => {
             for (accumulator <- accumulators)
@@ -81,6 +85,10 @@ class BlafParser(reader: Reader) {
     } catch {
       case e => throw e
     } finally {
+      // Stop all the actors
+      for (l <- listeners)
+        l._2 ! Stop
+
       xmlr.close()
     }
   }
@@ -97,3 +105,21 @@ class BlafParser(reader: Reader) {
     sb.append("</" + xmlr.getLocalName + ">")
   }
 }
+
+class BlafActor(processor: XMLProcessor) extends Actor {
+  def act() {
+    loop {
+      react {
+        case Process(xml) => {
+          processor(XML.loadString(xml))
+        }
+        case Stop =>{
+          exit()
+        }
+      }
+    }
+  }
+}
+
+case object Stop
+case class Process(xml:String)

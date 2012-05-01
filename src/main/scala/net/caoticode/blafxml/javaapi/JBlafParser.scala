@@ -14,7 +14,7 @@ trait BlafFunction {
 }
 
 class JBlafParser(reader: Reader) {
-  val blaf = net.caoticode.blafxml.BlafParser(reader)
+  private val blaf = net.caoticode.blafxml.BlafParser(reader)
 
   def forEach(nodeName: String, function: BlafFunction): JBlafParser = {
     blaf.forEach(nodeName){ xml =>

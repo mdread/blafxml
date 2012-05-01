@@ -16,4 +16,6 @@ object ExampleApp extends App {
     println()
     println()
   } process
+
+  println("END OF PROCEDURE")
 }
