@@ -3,8 +3,9 @@ package net.caoticode.blafxml
 import java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
 import xml.XML
-import actors.{Future, Actor}
-import actors.Actor._
+import com.typesafe.config.ConfigFactory
+import akka.actor.{Props, ActorSystem, Actor}
+import akka.routing.FromConfig
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
@@ -18,18 +19,25 @@ object BlafParser{
 }
 
 class BlafParser(reader: Reader) {
-  private var listeners = Map[String, Actor]()
+  private var listeners = Map[String, XMLProcessor]()
   private val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
 
   def forEach(nodeName: String)(callback: XMLProcessor): BlafParser = {
-    listeners += (nodeName -> new BlafActor(callback).start())
+    listeners += (nodeName -> callback)
     this
   }
 
   def process {
+    val config = ConfigFactory.load()
+    println(config)
+    val system = ActorSystem("BlaFXML", config.getConfig("blafxml").withFallback(config))
+    val router = system.actorOf(Props[Worker].withRouter(FromConfig()), "workersrouter")
+
+
+
     val factory = XMLInputFactory.newInstance()
     val xmlr = factory.createXMLStreamReader(reader)
-    val futures = scala.collection.mutable.Set[Future[Any]]()
+//    val futures = scala.collection.mutable.Set[Future[Any]]()
 
     try{
       while(xmlr.hasNext){
@@ -56,7 +64,8 @@ class BlafParser(reader: Reader) {
 
 //            val xml = XML.loadString(accumulator.toString)
 //            listeners(xmlr.getLocalName)(xml)
-            futures.add(listeners(xmlr.getLocalName) !! Process(accumulator.toString))
+            router ! Process(listeners(xmlr.getLocalName), accumulator.toString)
+//            futures.add(listeners(xmlr.getLocalName) !! Process(accumulator.toString))
           }
           case XMLStreamConstants.END_ELEMENT => {
             for (accumulator <- accumulators)
@@ -85,14 +94,14 @@ class BlafParser(reader: Reader) {
       }
 
       // wait for all the actors to end
-      futures.foreach(_.apply())
+//      futures.foreach(_.apply())
     } catch {
       case e => throw e
     } finally {
       // Stop all the actors
-      listeners.foreach(_._2 ! Stop)
-
+//      listeners.foreach(_._2 ! Stop)
       xmlr.close()
+      system.shutdown()
     }
   }
 
@@ -109,22 +118,11 @@ class BlafParser(reader: Reader) {
   }
 }
 
-class BlafActor(processor: XMLProcessor) extends Actor {
-  def act() {
-    loop {
-      react {
-        case Process(xml) => {
-          processor(XML.loadString(xml))
-          reply()
-        }
-        case Stop =>{
-          exit()
-        }
-        case _ =>
-      }
-    }
+class Worker extends Actor {
+  def receive = {
+    case Process(processor, xml) => processor(XML.loadString(xml))
   }
 }
 
 case object Stop
-case class Process(xml:String)
+case class Process(processor: XMLProcessor, xml: String)
