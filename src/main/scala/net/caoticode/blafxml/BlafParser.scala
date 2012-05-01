@@ -6,10 +6,9 @@ import xml.XML
 import com.typesafe.config.ConfigFactory
 import akka.routing.FromConfig
 import akka.util.duration._
-import akka.actor.{Props, ActorSystem, Actor}
 import akka.pattern.gracefulStop
-import akka.actor.ActorTimeoutException
 import akka.dispatch.{Future, Await}
+import akka.actor._
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
@@ -24,7 +23,6 @@ object BlafParser{
 
 class BlafParser(reader: Reader) {
   private var listeners = Map[String, XMLProcessor]()
-  private val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
 
   def forEach(nodeName: String)(callback: XMLProcessor): BlafParser = {
     listeners += (nodeName -> callback)
@@ -34,75 +32,87 @@ class BlafParser(reader: Reader) {
   def process {
     val config = ConfigFactory.load()
     val system = ActorSystem("BlaFXML", config.getConfig("blafxml").withFallback(config))
-    val router = system.actorOf(Props[Worker].withRouter(FromConfig()), "workersrouter")
+    println("STARTING MASTER ACTOR")
+    system.actorOf(Props[Master]) ! Start(reader, listeners)
+    println("WAITING FOR TERMINATION")
+    system.awaitTermination()
+    println("SYSTEM TERMINATED")
+  }
+}
 
-    val factory = XMLInputFactory.newInstance()
-    val xmlr = factory.createXMLStreamReader(reader)
+class Master extends Actor{
+  private var counter = 0
+  private val router = context.system.actorOf(Props[Worker].withRouter(FromConfig()), "workersrouter")
 
-    try{
-      while(xmlr.hasNext){
-        xmlr.getEventType match {
-          case XMLStreamConstants.START_ELEMENT if listeners.contains(xmlr.getLocalName) =>{
-            val sb = StringBuilder.newBuilder
-            accumulators.put(xmlr.getLocalName, sb)
+  def receive = {
+    case Start(reader, listeners) => {
+      val factory = XMLInputFactory.newInstance()
+      val xmlr = factory.createXMLStreamReader(reader)
+      val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
 
-            for (accumulator <- accumulators)
-              appendStartElement(accumulator._2, xmlr)
-          }
-          case XMLStreamConstants.START_ELEMENT => {
-            for (accumulator <- accumulators)
-              appendStartElement(accumulator._2, xmlr)
-          }
+      try{
+        while(xmlr.hasNext){
+          xmlr.getEventType match {
+            case XMLStreamConstants.START_ELEMENT if listeners.contains(xmlr.getLocalName) =>{
+              val sb = StringBuilder.newBuilder
+              accumulators.put(xmlr.getLocalName, sb)
 
-          case XMLStreamConstants.END_ELEMENT if listeners.contains(xmlr.getLocalName) =>{
-            for (accumulator <- accumulators)
-              appendEndElement(accumulator._2, xmlr)
-
-            // get a reference to the actual accumulator and remove it from the Map
-            val accumulator = accumulators(xmlr.getLocalName)
-            accumulators.remove(xmlr.getLocalName)
-
-            router ! Process(listeners(xmlr.getLocalName), accumulator.toString)
-          }
-          case XMLStreamConstants.END_ELEMENT => {
-            for (accumulator <- accumulators)
-              appendEndElement(accumulator._2, xmlr)
-
-          }
-
-          case XMLStreamConstants.CHARACTERS => {
-            for (accumulator <- accumulators)
-              accumulator._2.append(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength))
-          }
-
-          case XMLStreamConstants.CDATA => {
-            for (accumulator <- accumulators){
-              accumulator._2
-                .append("<![CDATA[")
-                .append(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength))
-                .append("]]>")
+              for (accumulator <- accumulators)
+                appendStartElement(accumulator._2, xmlr)
             }
+            case XMLStreamConstants.START_ELEMENT => {
+              for (accumulator <- accumulators)
+                appendStartElement(accumulator._2, xmlr)
+            }
+
+            case XMLStreamConstants.END_ELEMENT if listeners.contains(xmlr.getLocalName) =>{
+              for (accumulator <- accumulators)
+                appendEndElement(accumulator._2, xmlr)
+
+              // get a reference to the actual accumulator and remove it from the Map
+              val accumulator = accumulators(xmlr.getLocalName)
+              accumulators.remove(xmlr.getLocalName)
+
+              router ! Process(listeners(xmlr.getLocalName), accumulator.toString)
+              counter += 1
+            }
+            case XMLStreamConstants.END_ELEMENT => {
+              for (accumulator <- accumulators)
+                appendEndElement(accumulator._2, xmlr)
+
+            }
+
+            case XMLStreamConstants.CHARACTERS => {
+              for (accumulator <- accumulators)
+                accumulator._2.append(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength))
+            }
+
+            case XMLStreamConstants.CDATA => {
+              for (accumulator <- accumulators){
+                accumulator._2
+                  .append("<![CDATA[")
+                  .append(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength))
+                  .append("]]>")
+              }
+            }
+
+            case _ =>
           }
 
-          case _ =>
+          xmlr.next()
         }
-
-        xmlr.next()
-      }
-
-      try {
-        val stopped: Future[Boolean] = gracefulStop(router, 5 seconds)(system)
-        Await.result(stopped, 6 seconds)
-        println("actors stopped")
       } catch {
-        case e: ActorTimeoutException => e.printStackTrace()// the actor wasn’t stopped within 5 seconds
+        case e => // TODO handle exception
+      } finally {
+        xmlr.close()
       }
+    }
 
-    } catch {
-      case e => throw e
-    } finally {
-      xmlr.close()
-      system.shutdown()
+    case WorkerDone => {
+      counter -= 1
+      println("COUNTER = " + counter)
+      if (counter == 0)
+        context.system.shutdown()
     }
   }
 
@@ -121,8 +131,17 @@ class BlafParser(reader: Reader) {
 
 class Worker extends Actor {
   def receive = {
-    case Process(processor, xml) => try{ processor(XML.loadString(xml)) } catch { case e => e.printStackTrace() } // TODO handle exceptions (sending back an Exception message?)
+    case Process(processor, xml) => try{
+      processor(XML.loadString(xml))
+    } catch {
+      case e =>
+    } // TODO handle exceptions (sending back an Exception message?)
+    finally {
+      sender ! WorkerDone
+    }
   }
 }
 
+case class Start(reader: Reader, listeners: Map[String, XMLProcessor])
+case object WorkerDone
 case class Process(processor: XMLProcessor, xml: String)
