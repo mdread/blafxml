@@ -4,8 +4,12 @@ import java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
 import xml.XML
 import com.typesafe.config.ConfigFactory
-import akka.actor.{Props, ActorSystem, Actor}
 import akka.routing.FromConfig
+import akka.util.duration._
+import akka.actor.{Props, ActorSystem, Actor}
+import akka.pattern.gracefulStop
+import akka.actor.ActorTimeoutException
+import akka.dispatch.{Future, Await}
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
@@ -29,15 +33,11 @@ class BlafParser(reader: Reader) {
 
   def process {
     val config = ConfigFactory.load()
-    println(config)
     val system = ActorSystem("BlaFXML", config.getConfig("blafxml").withFallback(config))
     val router = system.actorOf(Props[Worker].withRouter(FromConfig()), "workersrouter")
 
-
-
     val factory = XMLInputFactory.newInstance()
     val xmlr = factory.createXMLStreamReader(reader)
-//    val futures = scala.collection.mutable.Set[Future[Any]]()
 
     try{
       while(xmlr.hasNext){
@@ -62,10 +62,7 @@ class BlafParser(reader: Reader) {
             val accumulator = accumulators(xmlr.getLocalName)
             accumulators.remove(xmlr.getLocalName)
 
-//            val xml = XML.loadString(accumulator.toString)
-//            listeners(xmlr.getLocalName)(xml)
             router ! Process(listeners(xmlr.getLocalName), accumulator.toString)
-//            futures.add(listeners(xmlr.getLocalName) !! Process(accumulator.toString))
           }
           case XMLStreamConstants.END_ELEMENT => {
             for (accumulator <- accumulators)
@@ -93,13 +90,17 @@ class BlafParser(reader: Reader) {
         xmlr.next()
       }
 
-      // wait for all the actors to end
-//      futures.foreach(_.apply())
+      try {
+        val stopped: Future[Boolean] = gracefulStop(router, 5 seconds)(system)
+        Await.result(stopped, 6 seconds)
+        println("actors stopped")
+      } catch {
+        case e: ActorTimeoutException => e.printStackTrace()// the actor wasn’t stopped within 5 seconds
+      }
+
     } catch {
       case e => throw e
     } finally {
-      // Stop all the actors
-//      listeners.foreach(_._2 ! Stop)
       xmlr.close()
       system.shutdown()
     }
@@ -120,9 +121,8 @@ class BlafParser(reader: Reader) {
 
 class Worker extends Actor {
   def receive = {
-    case Process(processor, xml) => processor(XML.loadString(xml))
+    case Process(processor, xml) => try{ processor(XML.loadString(xml)) } catch { case e => e.printStackTrace() } // TODO handle exceptions (sending back an Exception message?)
   }
 }
 
-case object Stop
 case class Process(processor: XMLProcessor, xml: String)

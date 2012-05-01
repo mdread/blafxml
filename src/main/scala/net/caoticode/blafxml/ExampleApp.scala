@@ -3,7 +3,7 @@ package net.caoticode.blafxml
 import java.io.FileReader
 
 object ExampleApp extends App {
-  val reader = new FileReader("/home/chaos/Source/scala/stanbolator/client/src/main/resources/testIndiciIBCFull.xml")
+  val reader = new FileReader("/home/chaos/Source/scala/stanbolator/docs/xslt/EsempioOutputAnnotato.xml")
 
   println("START OF PROCEDURE")
 
