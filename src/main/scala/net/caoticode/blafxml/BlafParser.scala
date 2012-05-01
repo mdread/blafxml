@@ -3,7 +3,7 @@ package net.caoticode.blafxml
 import java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
 import xml.XML
-import actors.Actor
+import actors.{Future, Actor}
 import actors.Actor._
 
 /**
@@ -18,8 +18,8 @@ object BlafParser{
 }
 
 class BlafParser(reader: Reader) {
-
   private var listeners = Map[String, Actor]()
+  private val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
 
   def forEach(nodeName: String)(callback: XMLProcessor): BlafParser = {
     listeners += (nodeName -> new BlafActor(callback).start())
@@ -27,9 +27,10 @@ class BlafParser(reader: Reader) {
   }
 
   def process {
-    val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
     val factory = XMLInputFactory.newInstance()
     val xmlr = factory.createXMLStreamReader(reader)
+    val futures = scala.collection.mutable.Set[Future[Any]]()
+
     try{
       while(xmlr.hasNext){
         xmlr.getEventType match {
@@ -55,7 +56,7 @@ class BlafParser(reader: Reader) {
 
 //            val xml = XML.loadString(accumulator.toString)
 //            listeners(xmlr.getLocalName)(xml)
-            listeners(xmlr.getLocalName) ! Process(accumulator.toString)
+            futures.add(listeners(xmlr.getLocalName) !! Process(accumulator.toString))
           }
           case XMLStreamConstants.END_ELEMENT => {
             for (accumulator <- accumulators)
@@ -82,12 +83,14 @@ class BlafParser(reader: Reader) {
 
         xmlr.next()
       }
+
+      // wait for all the actors to end
+      futures.foreach(_.apply())
     } catch {
       case e => throw e
     } finally {
       // Stop all the actors
-      for (l <- listeners)
-        l._2 ! Stop
+      listeners.foreach(_._2 ! Stop)
 
       xmlr.close()
     }
@@ -112,10 +115,12 @@ class BlafActor(processor: XMLProcessor) extends Actor {
       react {
         case Process(xml) => {
           processor(XML.loadString(xml))
+          reply()
         }
         case Stop =>{
           exit()
         }
+        case _ =>
       }
     }
   }
