@@ -59,7 +59,6 @@ class BlafParser(reader: Reader) {
             val accumulator = accumulators(xmlr.getLocalName)
             accumulators.remove(xmlr.getLocalName)
 
-            counter ! Increment
             router ! Process(listeners(xmlr.getLocalName), accumulator.toString)
           }
           case XMLStreamConstants.END_ELEMENT => {
@@ -113,6 +112,7 @@ class BlafParser(reader: Reader) {
 class Worker(counter: ActorRef) extends Actor {
   def receive = {
     case Process(processor, xml) => try{
+      counter ! Increment
       processor(XML.loadString(xml))
     } catch {
       case e => e.printStackTrace() // TODO handle exceptions (sending back an Exception message?)
