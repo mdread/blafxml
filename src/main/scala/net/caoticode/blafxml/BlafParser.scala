@@ -61,7 +61,7 @@ class BlafParser(reader: Reader) {
                 try{
                   listeners(name)(XML.loadString(xmlstr))
                 } catch {
-                  case e => println("EXCEPTION")
+                  case e => e.printStackTrace() // TODO handle exceptions
                 }
               }
             })(xmlr.getLocalName, accumulator.toString)
