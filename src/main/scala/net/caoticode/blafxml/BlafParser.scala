@@ -2,14 +2,20 @@ package net.caoticode.blafxml
 
 import java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
-import xml.XML
 import scala.actors.Future
 import scala.actors.Futures._
+import xml.{NodeSeq, XML}
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
  * */
 
+object ordered {
+  def apply(block: => Unit): Option[() => Unit] = {
+    val f = () => block
+    Some[() => Unit](f)
+  }
+}
 
 object BlafParser{
   def apply(reader: Reader): BlafParser = {
@@ -27,7 +33,7 @@ class BlafParser(reader: Reader) {
 
   def process {
     var counter = 0
-    var results = List[Future[Unit]]()
+    var results = List[Future[Any]]()
 
     val factory = XMLInputFactory.newInstance()
     val xmlr = factory.createXMLStreamReader(reader)
@@ -61,13 +67,20 @@ class BlafParser(reader: Reader) {
                 try{
                   listeners(name)(XML.loadString(xmlstr))
                 } catch {
-                  case e => e.printStackTrace() // TODO handle exceptions
+                  case e => {
+                    e.printStackTrace() // TODO handle exceptions
+                    None
+                  }
                 }
               }
             })(xmlr.getLocalName, accumulator.toString)
+
             counter += 1
             if (counter % 40 == 0){
-              results.foreach(_.apply())
+              results.foreach(_.apply() match {
+                case Some(func: (() => Unit)) => func()
+                case _ =>
+              })
               results = List(f)
             } else{
               results = results ::: List(f)
@@ -99,7 +112,10 @@ class BlafParser(reader: Reader) {
         xmlr.next()
       }
 
-      results.foreach(_.apply())
+      results.foreach(_.apply() match {
+        case Some(func: (() => Unit)) => func()
+        case _ =>
+      })
     } catch {
       case e => e.printStackTrace() // TODO handle exception
     } finally {

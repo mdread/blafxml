@@ -20,8 +20,16 @@ object ExampleApp extends App {
 ////    println()
 //  }.process
 
-  BlafParser(reader).forEach("c"){xml => println((xml \ "@id").text)}.process
+//  BlafParser(reader).forEach("c"){xml => println((xml \ "@id").text)}.process
 
+  BlafParser(reader).forEach("c"){xml =>
+    val id = (xml \ "@id").text
+//    println(id)
+
+    ordered {
+      println(id)
+    }
+  }.process
 
   println("END OF PROCEDURE")
 }
