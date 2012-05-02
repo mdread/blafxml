@@ -8,16 +8,16 @@ object ExampleApp extends App {
   println("START OF PROCEDURE")
 
   BlafParser(reader).forEach("c"){ xml =>
-    println("----------- C NODE ---------")
+//    println("----------- C NODE ---------")
     println(xml)
     println()
-    println()
+//    println()
   }.forEach("unittitle"){ xml =>
-    println("----------- UNITTITLE NODE ---------")
+//    println("----------- UNITTITLE NODE ---------")
     println(xml)
     println()
-    println()
-  } process
+//    println()
+  }.process
 
   println("END OF PROCEDURE")
 }
