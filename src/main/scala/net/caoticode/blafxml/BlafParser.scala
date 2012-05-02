@@ -26,6 +26,7 @@ class BlafParser(reader: Reader) {
   }
 
   def process {
+    var counter = 0
     var results = List[Future[Unit]]()
 
     val factory = XMLInputFactory.newInstance()
@@ -60,12 +61,17 @@ class BlafParser(reader: Reader) {
                 try{
                   listeners(name)(XML.loadString(xmlstr))
                 } catch {
-                  case e =>
+                  case e => println("EXCEPTION")
                 }
               }
             })(xmlr.getLocalName, accumulator.toString)
-
-            results = results ::: List(f)
+            counter += 1
+            if (counter % 40 == 0){
+              results.foreach(_.apply())
+              results = List(f)
+            } else{
+              results = results ::: List(f)
+            }
           }
           case XMLStreamConstants.END_ELEMENT => {
             for (accumulator <- accumulators)
@@ -92,13 +98,13 @@ class BlafParser(reader: Reader) {
 
         xmlr.next()
       }
+
+      results.foreach(_.apply())
     } catch {
       case e => e.printStackTrace() // TODO handle exception
     } finally {
       xmlr.close()
     }
-
-    results.foreach(_.apply())
   }
 
   private def appendStartElement(sb: StringBuilder, xmlr: XMLStreamReader) {
