@@ -3,9 +3,8 @@ package net.caoticode.blafxml
 import java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
 import xml.XML
-import com.typesafe.config.ConfigFactory
-import akka.actor._
-import akka.routing.FromConfig
+import scala.actors.Future
+import scala.actors.Futures._
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
@@ -27,10 +26,7 @@ class BlafParser(reader: Reader) {
   }
 
   def process {
-    val config = ConfigFactory.load()
-    val system = ActorSystem("BlaFXML", config.getConfig("blafxml").withFallback(config))
-    val counter = system.actorOf(Props[Counter], "counter")
-    val router = system.actorOf(Props(new Worker(counter)).withRouter(FromConfig()), "workersrouter")
+    var results = List[Future[Unit]]()
 
     val factory = XMLInputFactory.newInstance()
     val xmlr = factory.createXMLStreamReader(reader)
@@ -59,7 +55,17 @@ class BlafParser(reader: Reader) {
             val accumulator = accumulators(xmlr.getLocalName)
             accumulators.remove(xmlr.getLocalName)
 
-            router ! Process(listeners(xmlr.getLocalName), accumulator.toString)
+            val f = ((name:String, xmlstr: String) => {
+              future {
+                try{
+                  listeners(name)(XML.loadString(xmlstr))
+                } catch {
+                  case e =>
+                }
+              }
+            })(xmlr.getLocalName, accumulator.toString)
+
+            results = results ::: List(f)
           }
           case XMLStreamConstants.END_ELEMENT => {
             for (accumulator <- accumulators)
@@ -92,8 +98,7 @@ class BlafParser(reader: Reader) {
       xmlr.close()
     }
 
-    counter ! StartCountdown
-    system.awaitTermination()
+    results.foreach(_.apply())
   }
 
   private def appendStartElement(sb: StringBuilder, xmlr: XMLStreamReader) {
@@ -109,36 +114,3 @@ class BlafParser(reader: Reader) {
   }
 }
 
-class Worker(counter: ActorRef) extends Actor {
-  def receive = {
-    case Process(processor, xml) => try{
-      counter ! Increment
-      processor(XML.loadString(xml))
-    } catch {
-      case e => e.printStackTrace() // TODO handle exceptions (sending back an Exception message?)
-    }
-    finally {
-      counter ! Decrement
-    }
-  }
-}
-
-class Counter extends Actor {
-  var counter = 0
-  var countdown = false
-
-  def receive = {
-    case Increment => counter += 1;
-    case Decrement => {
-      counter -= 1
-      if (countdown && counter == 0)
-        context.system.shutdown()
-    }
-    case StartCountdown => countdown = true
-  }
-}
-
-case object Increment
-case object Decrement
-case object StartCountdown
-case class Process(processor: XMLProcessor, xml: String)
