@@ -1,6 +1,6 @@
 package net.caoticode.blafxml
 
-import java.io.Reader
+import _root_.java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
 import scala.actors.Future
 import scala.actors.Futures._

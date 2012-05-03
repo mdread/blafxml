@@ -1,4 +1,4 @@
-package net.caoticode.blafxml.javaapi
+package net.caoticode.blafxml.java
 
 //import org.w3c.dom.Document
 //import javax.xml.parsers.DocumentBuilderFactory
