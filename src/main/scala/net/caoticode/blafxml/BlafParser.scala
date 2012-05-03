@@ -12,14 +12,23 @@ import xml.{NodeSeq, XML}
 
 object ordered {
   def apply(block: => Unit): Option[() => Unit] = {
-    val f = () => block
+    val f = () => try {
+      block
+    }catch{
+      case e => e.printStackTrace()
+    }
+
     Some[() => Unit](f)
   }
 }
 
 object unordered {
   def apply(block: => Unit): Option[() => Unit] = {
-    block
+    try {
+      block
+    }catch{
+      case e => e.printStackTrace()
+    }
     None
   }
 }
