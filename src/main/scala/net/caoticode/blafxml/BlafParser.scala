@@ -17,6 +17,13 @@ object ordered {
   }
 }
 
+object unordered {
+  def apply(block: => Unit): Option[() => Unit] = {
+    block
+    None
+  }
+}
+
 object BlafParser{
   def apply(reader: Reader): BlafParser = {
     new BlafParser(reader)
