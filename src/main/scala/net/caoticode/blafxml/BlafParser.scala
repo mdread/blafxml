@@ -2,9 +2,11 @@ package net.caoticode.blafxml
 
 import _root_.java.io.Reader
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
-import scala.actors.Future
-import scala.actors.Futures._
-import xml.{NodeSeq, XML}
+import xml.XML
+import com.typesafe.config.ConfigFactory
+import akka.actor.ActorSystem
+import akka.dispatch.{Await, Future, ExecutionContext}
+import akka.util.duration._
 
 /**
  * @author Daniel Camarda (0xcaos@gmail.com)
@@ -41,6 +43,18 @@ object BlafParser{
 
 class BlafParser(reader: Reader) {
   private var listeners = Map[String, XMLProcessor]()
+  private val consumeFutures = (futures: List[Future[Any]]) => {
+    futures.foreach{ future =>
+      try{
+        Await.result(future, 5 second) match {
+          case Some(func: (() => Unit)) => func()
+          case _ =>
+        }
+      }catch{
+        case e => e.printStackTrace()
+      }
+    }
+  }
 
   def forEach(nodeName: String)(callback: XMLProcessor): BlafParser = {
     listeners += (nodeName -> callback)
@@ -54,6 +68,10 @@ class BlafParser(reader: Reader) {
     val factory = XMLInputFactory.newInstance()
     val xmlr = factory.createXMLStreamReader(reader)
     val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
+
+    val config = ConfigFactory.load()
+    implicit val system = ActorSystem("BlaFXML", config.getConfig("blafxml").withFallback(config))
+    implicit val ec = ExecutionContext.defaultExecutionContext
 
     try{
       while(xmlr.hasNext){
@@ -79,7 +97,7 @@ class BlafParser(reader: Reader) {
             accumulators.remove(xmlr.getLocalName)
 
             val f = ((name:String, xmlstr: String) => {
-              future {
+              Future {
                 try{
                   listeners(name)(XML.loadString(xmlstr))
                 } catch {
@@ -93,10 +111,8 @@ class BlafParser(reader: Reader) {
 
             counter += 1
             if (counter % 40 == 0){
-              results.foreach(_.apply() match {
-                case Some(func: (() => Unit)) => func()
-                case _ =>
-              })
+              consumeFutures(results)
+
               results = List(f)
             } else{
               results = results ::: List(f)
@@ -128,14 +144,13 @@ class BlafParser(reader: Reader) {
         xmlr.next()
       }
 
-      results.foreach(_.apply() match {
-        case Some(func: (() => Unit)) => func()
-        case _ =>
-      })
+      consumeFutures(results)
     } catch {
       case e => e.printStackTrace() // TODO handle exception
     } finally {
       xmlr.close()
+      reader.close()
+      system.shutdown()
     }
   }
 
