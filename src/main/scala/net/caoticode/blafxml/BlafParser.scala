@@ -44,7 +44,7 @@ object BlafParser{
 class BlafParser(reader: Reader) {
   private var listeners = Map[String, XMLProcessor]()
   private val consumeFutures = (futures: List[Future[Any]]) => {
-    futures.foreach{ future =>
+    for(future <- futures.reverseIterator){
       try{
         Await.result(future, 5 second) match {
           case Some(func: (() => Unit)) => func()
@@ -113,9 +113,9 @@ class BlafParser(reader: Reader) {
             if (counter % 40 == 0){
               consumeFutures(results)
 
-              results = List(f)
+              results = f :: Nil
             } else{
-              results = results ::: List(f)
+              results = f :: results
             }
           }
           case XMLStreamConstants.END_ELEMENT => {
