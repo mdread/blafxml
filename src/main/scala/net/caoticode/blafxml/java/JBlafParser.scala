@@ -3,8 +3,8 @@ package net.caoticode.blafxml.java
 import org.w3c.dom.Document
 import javax.xml.parsers.DocumentBuilderFactory
 import org.xml.sax.InputSource
-import java.io.{StringReader, Reader}
 import net.caoticode.blafxml.ordered
+import java.io.{InputStream, StringReader, Reader}
 
 /**
 * java version of the blafxml parser
@@ -15,7 +15,7 @@ trait BlafFunction {
   def processOrdered(xml: Document)
 }
 
-class JBlafParser(reader: Reader) {
+class JBlafParser(reader: InputStream) {
   private val blaf = net.caoticode.blafxml.BlafParser(reader)
 
   def forEach(nodeName: String, function: BlafFunction): JBlafParser = {

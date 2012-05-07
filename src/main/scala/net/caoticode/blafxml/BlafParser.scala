@@ -1,6 +1,6 @@
 package net.caoticode.blafxml
 
-import _root_.java.io.Reader
+import _root_.java.io.{InputStream, Reader}
 import javax.xml.stream.{XMLStreamReader, XMLStreamConstants, XMLInputFactory}
 import xml.XML
 import com.typesafe.config.ConfigFactory
@@ -36,12 +36,12 @@ object unordered {
 }
 
 object BlafParser{
-  def apply(reader: Reader): BlafParser = {
-    new BlafParser(reader)
+  def apply(reader: InputStream, encoding: String = "UTF-8"): BlafParser = {
+    new BlafParser(reader, encoding)
   }
 }
 
-class BlafParser(reader: Reader) {
+class BlafParser(reader: InputStream, encoding: String = "UTF-8") {
   private var listeners = Map[String, XMLProcessor]()
   private val consumeFutures = (futures: List[Future[Any]]) => {
     for(future <- futures.reverseIterator){
@@ -66,7 +66,7 @@ class BlafParser(reader: Reader) {
     var results = List[Future[Any]]()
 
     val factory = XMLInputFactory.newInstance()
-    val xmlr = factory.createXMLStreamReader(reader)
+    val xmlr = factory.createXMLStreamReader(reader, "ISO-8859-1")
     val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
 
     val config = ConfigFactory.load()
