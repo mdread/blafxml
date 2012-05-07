@@ -103,6 +103,7 @@ class BlafParser(reader: Reader) {
                 } catch {
                   case e => {
                     e.printStackTrace() // TODO handle exceptions
+                    println("XMLSTR = " + xmlstr)
                     None
                   }
                 }
@@ -126,14 +127,14 @@ class BlafParser(reader: Reader) {
 
           case XMLStreamConstants.CHARACTERS => {
             for (accumulator <- accumulators)
-              accumulator._2.append(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength))
+              accumulator._2.append(scala.xml.Text(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength)).toString())
           }
 
           case XMLStreamConstants.CDATA => {
             for (accumulator <- accumulators){
               accumulator._2
                 .append("<![CDATA[")
-                .append(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength))
+                .append(scala.xml.Text(new String(xmlr.getTextCharacters, xmlr.getTextStart, xmlr.getTextLength)).toString())
                 .append("]]>")
             }
           }
@@ -157,7 +158,7 @@ class BlafParser(reader: Reader) {
   private def appendStartElement(sb: StringBuilder, xmlr: XMLStreamReader) {
     sb.append("<" + xmlr.getLocalName)
     for (i <- 0 until xmlr.getAttributeCount) {
-      sb.append(" " + xmlr.getAttributeLocalName(i) + "=\"" + xmlr.getAttributeValue(i) + "\"")
+      sb.append(" " + xmlr.getAttributeLocalName(i) + "=\"" + scala.xml.Text(xmlr.getAttributeValue(i)).toString() + "\"")
     }
     sb.append(">")
   }
