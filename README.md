@@ -36,6 +36,7 @@ Maven dependencies (for java)
 
 <dependencies>
 
+
 <dependency>
 
 	<groupId>org.scala-lang</groupId>
@@ -44,6 +45,7 @@ Maven dependencies (for java)
 	
 </dependency>
 
+
 <dependency>
 
 	<groupId>com.typesafe</groupId>
@@ -51,6 +53,7 @@ Maven dependencies (for java)
 	<version>0.4.1</version>
 
 </dependency>
+
 
 <dependency>
 
