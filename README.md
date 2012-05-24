@@ -45,15 +45,20 @@ Maven dependencies (for java)
 </dependency>
 
 <dependency>
+
 	<groupId>com.typesafe</groupId>
 	<artifactId>config</artifactId>
 	<version>0.4.1</version>
+
 </dependency>
 
 <dependency>
+
 	<groupId>net.caoticode</groupId>
 	<artifactId>blafxml</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+
 </dependency>
 ...
+
 </dependencies>
