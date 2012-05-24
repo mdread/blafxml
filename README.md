@@ -31,3 +31,37 @@ Java example
         }
     }).process();
 
+Maven dependencies (for java)
+-----------------------------
+
+<dependencies>
+
+
+<dependency>
+
+	<groupId>org.scala-lang</groupId>
+	<artifactId>scala-library</artifactId>
+	<version>2.9.1</version>
+	
+</dependency>
+
+
+<dependency>
+
+	<groupId>com.typesafe</groupId>
+	<artifactId>config</artifactId>
+	<version>0.4.1</version>
+
+</dependency>
+
+
+<dependency>
+
+	<groupId>net.caoticode</groupId>
+	<artifactId>blafxml</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+
+</dependency>
+...
+
+</dependencies>
