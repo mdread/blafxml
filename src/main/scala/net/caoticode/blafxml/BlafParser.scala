@@ -66,7 +66,7 @@ class BlafParser(reader: InputStream, encoding: String = "UTF-8") {
     var results = List[Future[Any]]()
 
     val factory = XMLInputFactory.newInstance()
-    val xmlr = factory.createXMLStreamReader(reader, "ISO-8859-1")
+    val xmlr = factory.createXMLStreamReader(reader, encoding)
     val accumulators = scala.collection.mutable.Map[String, StringBuilder]()
 
     val config = ConfigFactory.load()
@@ -103,7 +103,6 @@ class BlafParser(reader: InputStream, encoding: String = "UTF-8") {
                 } catch {
                   case e => {
                     e.printStackTrace() // TODO handle exceptions
-                    println("XMLSTR = " + xmlstr)
                     None
                   }
                 }
