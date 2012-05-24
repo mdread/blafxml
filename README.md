@@ -35,10 +35,13 @@ Maven dependencies (for java)
 -----------------------------
 
 <dependencies>
+
 <dependency>
+
 	<groupId>org.scala-lang</groupId>
 	<artifactId>scala-library</artifactId>
 	<version>2.9.1</version>
+	
 </dependency>
 
 <dependency>
