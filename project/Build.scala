@@ -9,7 +9,7 @@ object ProjectBuild extends Build {
       name := "BlaFXML",
       organization := "net.caoticode",
       version := "0.1-SNAPSHOT",
-      scalaVersion := "2.9.1"
+      scalaVersion := "2.10.0"
       // add other settings here
     )
   )
